@@ -182,30 +182,32 @@ func bellmanFord(
 	return "", ErrNotFound
 }
 
-type stack []*stackElement
+type stack struct {
+	s []*stackElement
+}
 
 func (s *stack) notEmpty() bool {
-	return len(*s) > 0
+	return len(s.s) > 0
 }
 
 func (s *stack) last() *stackElement {
-	return (*s)[len(*s)-1]
+	return s.s[len(s.s)-1]
 }
 
-func (s *stack) pop() (stack, *stackElement) {
-	s1, rest := (*s)[len(*s)-1], (*s)[:len(*s)-1]
-	return rest, s1
+func (s *stack) append(e *stackElement) {
+	s.s = append(s.s, e)
+}
+
+func (s *stack) pop() *stackElement {
+	s1 := s.s[len(s.s)-1]
+	rest := s.s[:len(s.s)-1]
+	s.s = rest
+	return s1
 }
 
 type stackElement struct {
-	v     string
+	node  string
 	preds *preds
-}
-
-func newStackElement(v string, srcPreds []string) *stackElement {
-	newPreds := make([]string, len(srcPreds))
-	copy(newPreds, srcPreds)
-	return &stackElement{v, &preds{newPreds}}
 }
 
 type preds struct {
@@ -222,7 +224,8 @@ func (p *preds) contains(e string) bool {
 }
 
 func (p *preds) pop() string {
-	p1, rest := p.p[len(p.p)-1], p.p[:len(p.p)-1]
+	p1 := p.p[len(p.p)-1]
+	rest := p.p[:len(p.p)-1]
 	p.p = rest
 	return p1
 }
@@ -231,23 +234,35 @@ func (p *preds) notEmpty() bool {
 	return len(p.p) > 0
 }
 
-type path []string
+type path struct {
+	p []string
+}
 
 func (p *path) reverse() {
-	pp := *p
-	for i, j := 0, len(pp)-1; i < j; i, j = i+1, j-1 {
-		pp[i], pp[j] = pp[j], pp[i]
+	for i, j := 0, len(p.p)-1; i < j; i, j = i+1, j-1 {
+		p.p[i], p.p[j] = p.p[j], p.p[i]
 	}
 }
 
 func (p *path) notEmpty() bool {
-	return len(*p) > 0
+	return len(p.p) > 0
 }
 
-func (p *path) pop() (path, string) {
-	pp := *p
-	p1, rest := pp[len(pp)-1], pp[:len(pp)-1]
-	return rest, p1
+func (p *path) append(r string) {
+	p.p = append(p.p, r)
+}
+
+func (p *path) pop() string {
+	p1 := p.p[len(p.p)-1]
+	rest := p.p[:len(p.p)-1]
+	p.p = rest
+	return p1
+}
+
+func (p *path) copy() []string {
+	pp := make([]string, len(p.p))
+	copy(pp, p.p)
+	return pp
 }
 
 func FindNegativeCycle(
@@ -262,28 +277,29 @@ func FindNegativeCycle(
 	}
 	var negCycle path
 	var stack stack
-	stack = append(stack, newStackElement(v, pred[v]))
+	stack.append(&stackElement{v, &preds{pred[v]}})
 	seen := make(set)
 	seen.put(v)
 	for stack.notEmpty() {
 		elm := stack.last()
-		node, preds := elm.v, elm.preds
-		if preds.contains(v) {
-			negCycle = append(negCycle, node, v)
+		// node, preds := elm.v, elm.preds
+		if elm.preds.contains(v) {
+			negCycle.append(elm.node)
+			negCycle.append(v)
 			negCycle.reverse()
-			return negCycle, nil
+			return negCycle.copy(), nil
 		}
-		if preds.notEmpty() {
-			nbr := preds.pop()
+		if elm.preds.notEmpty() {
+			nbr := elm.preds.pop()
 			if !seen.contains(nbr) {
-				stack = append(stack, newStackElement(nbr, pred[nbr]))
-				negCycle = append(negCycle, node)
+				stack.append(&stackElement{nbr, &preds{pred[nbr]}})
+				negCycle.append(elm.node)
 				seen.put(nbr)
 			}
 		} else {
-			stack, _ = stack.pop()
+			stack.pop()
 			if negCycle.notEmpty() {
-				negCycle, _ = negCycle.pop()
+				negCycle.pop()
 			} else {
 				if adj, ok := g.adjacency[v]; ok {
 					if _, ok = adj[v]; ok && weightFunc(v, v) < 0 {
@@ -295,4 +311,25 @@ func FindNegativeCycle(
 		}
 	}
 	return []string{}, ErrNotFound
+}
+
+func StartFrom(path []string, start string) []string {
+	if path[len(path)-1] != path[0] {
+		path = append(path, path[0])
+	}
+	startIndex := -1
+	for i := range path {
+		if path[i] == start {
+			startIndex = i
+			break
+		}
+	}
+	newPath := make([]string, len(path))
+	for i := startIndex; i < len(path)-1; i++ {
+		newPath[i-startIndex] = path[i]
+	}
+	for i := 0; i < startIndex+1; i++ {
+		newPath[i+len(path)-startIndex-1] = path[i]
+	}
+	return newPath
 }
