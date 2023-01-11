@@ -29,15 +29,14 @@ func AllSimplePaths(g *DirectedGraph, from, to string, cutoff int) <-chan []stri
 					visited.pop()
 				}
 			} else {
-				for i := range children.items {
-					childItem := children.items[i]
-					if visited.contains(childItem) {
+				for ; child != nil; child = children.next() {
+					if visited.contains(*child) {
 						continue
 					}
-					if childItem == to {
+					if *child == to {
 						var tmp []string
 						tmp = append(tmp, visited.visitedOrders...)
-						tmp = append(tmp, childItem)
+						tmp = append(tmp, *child)
 						ch <- tmp
 					}
 				}
