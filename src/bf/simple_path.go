@@ -29,11 +29,17 @@ func AllSimplePaths(g *DirectedGraph, from, to string, cutoff int) <-chan []stri
 					visited.pop()
 				}
 			} else {
-				if *child == to {
-					var tmp []string
-					tmp = append(tmp, visited.visitedOrders...)
-					tmp = append(tmp, *child)
-					ch <- tmp
+				for i := range children.items {
+					childItem := children.items[i]
+					if visited.contains(childItem) {
+						continue
+					}
+					if childItem == to {
+						var tmp []string
+						tmp = append(tmp, visited.visitedOrders...)
+						tmp = append(tmp, childItem)
+						ch <- tmp
+					}
 				}
 				stack = stack[:len(stack)-1]
 				visited.pop()
@@ -45,23 +51,23 @@ func AllSimplePaths(g *DirectedGraph, from, to string, cutoff int) <-chan []stri
 }
 
 type edgeIterator struct {
-	index    int
-	children []string
+	index int
+	items []string
 }
 
 func newEdgeIterator(g *DirectedGraph, from string) *edgeIterator {
 	ei := edgeIterator{}
 	for k := range g.adjacency[from] {
-		ei.children = append(ei.children, k)
+		ei.items = append(ei.items, k)
 	}
 	return &ei
 }
 
 func (ei *edgeIterator) next() *string {
-	if ei.index < len(ei.children) {
+	if ei.index < len(ei.items) {
 		i := ei.index
 		ei.index += 1
-		return &ei.children[i]
+		return &ei.items[i]
 	}
 	return nil
 }
